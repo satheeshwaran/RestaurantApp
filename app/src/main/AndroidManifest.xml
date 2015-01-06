@@ -4,7 +4,6 @@
 
     <!-- GCM connects to Internet Services. -->
     <uses-permission android:name="android.permission.INTERNET" />
-
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <!-- GCM requires a Google account. -->
@@ -28,20 +27,19 @@
 
     <!-- Permission to vibrate -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/AppTheme"
         android:logo="@drawable/ic_launcher"
-        >
+        android:theme="@style/AppTheme" >
         <activity
             android:name=".MainActivity"
-            android:label="@string/app_name"
-            android:theme="@style/AppTheme"
-            android:logo="@drawable/ic_launcher"
             android:icon="@drawable/ic_launcher"
-            >
+            android:label="@string/app_name"
+            android:logo="@drawable/ic_launcher"
+            android:theme="@style/AppTheme" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -64,6 +62,11 @@
         </receiver>
 
         <service android:name=".GCM.GcmIntentService" />
+
+        <activity
+            android:name=".OrderConfirmationActivity"
+            android:label="@string/title_activity_order_confirmation" >
+        </activity>
     </application>
 
 </manifest>
