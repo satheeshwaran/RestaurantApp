@@ -85,31 +85,11 @@ public class MainActivity extends ActionBarActivity implements AdapterView.OnIte
     private ProgressDialog progress;
     private ProgressDialog pDialog;
 
-    String[] itemname ={
-            "Coffee",
-            "Lemon Tea",
-            "Green Tea",
-            "Cardmom Tea",
-            "Ginger Tea",
-            "Latte",
-            "Cappuchino",
-            "Mexican Sandwich",
-            "Veg Mayo Sandwich",
-            "Veg Platter",
-            "Veg Cheese Salad",
-            "Chicken Sandwich",
-            "Orange Juice",
-            "Lemon Juice",
-            "Apple Juice"
-    };
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = this;
         setContentView(R.layout.activity_main);
-        //adapter=new CustomListAdapter(this, itemname, imgid);
         menuItemsListView = (ListView)this.findViewById(R.id.menuItemsListView);
         menuItemsListView.setAdapter(adapter);
         menuItemsListView.setOnItemClickListener(this);
