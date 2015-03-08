@@ -1,270 +1,201 @@
 package com.example.harimani.restaurantapp;
 
-import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.ProgressDialog;
-import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
-
-import java.io.BufferedReader;
-import java.io.File;
+import android.widget.TextView;
+import com.example.harimani.restaurantapp.Model.MenuItemModel;
+import com.example.harimani.restaurantapp.adapter.CustomListAdapter;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
-import android.app.ListActivity;
-import android.view.View;
-import android.widget.TextView;
-import android.widget.Toast;
-import android.app.ActionBar;
-
-import com.example.harimani.restaurantapp.Model.MenuItemModel;
-import com.example.harimani.restaurantapp.adapter.CustomListAdapter;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import org.json.JSONObject;
-
-public class MainActivity extends ActionBarActivity implements AdapterView.OnItemClickListener{
-
-    public static final String EXTRA_MESSAGE = "message";
-    public static final String PROPERTY_REG_ID = "registration_id";
-    private static final String PROPERTY_APP_VERSION = "appVersion";
-    private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
-
-
+/**
+ * MainActivity is a ActionBarActivity subclass that shows the menu list from which the user can select his item for the order.
+ */
+public class MainActivity extends ActionBarActivity
+        implements AdapterView.OnItemClickListener
+{
     /**
-     * Substitute you own sender ID here. This is the project number you got
-     * from the API Console, as described in "Getting Started."
+     * FetchMenuItemsTask is a AsyncTask subclass the handles the menu item fetch from the web service.
      */
-    String SENDER_ID = "657567415747";
-
-    /**
-     * Tag used on log messages.
-     */
-    static final String TAG = "GCM Demo";
-
-    String fullPath;
-    TextView mDisplay;
-    GoogleCloudMessaging gcm;
-    AtomicInteger msgId = new AtomicInteger();
-    String regid;
-
-    CustomListAdapter adapter;
-    ListView menuItemsListView;
-    ArrayList<MenuItemModel> menuList;
-    Context context;
-    private ProgressDialog progress;
-    private ProgressDialog pDialog;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        context = this;
-        setContentView(R.layout.activity_main);
-        menuItemsListView = (ListView)this.findViewById(R.id.menuItemsListView);
-        menuItemsListView.setAdapter(adapter);
-        menuItemsListView.setOnItemClickListener(this);
-        progress = new ProgressDialog(this);
-        refreshItems();
-
-        // Check device for Play Services APK. If check succeeds, proceed with GCM registration.
-        if (checkPlayServices()) {
-            gcm = GoogleCloudMessaging.getInstance(this);
-            regid = getRegistrationId(this);
-
-            if (regid.isEmpty()) {
-                registerInBackground();
-            }
-        } else {
-            Log.i(TAG, "No valid Google Play Services APK found.");
-        }
-        //setListAdapter(adapter);
-    }
-
-    private void refreshItems()
+    private class FetchMenuItemsTask extends AsyncTask<Void,Void,Void>
     {
-        showLoadingWithMessage("Fetching Menu Items");
-        FetchMenuItemsTask menuItemsTask = new FetchMenuItemsTask();
-        menuItemsTask.execute();
-    }
-    public void onListItemClick(ListView lv ,View view,int position,int imgid) {
-
-        try {
-
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            startActivityForResult(intent, 1);
-
-        } catch (ActivityNotFoundException anfe) {
-
-            String errorMessage = "Whoops - your device doesn't support capturing images!";
-            Toast toast = Toast.makeText(this, errorMessage,
-                    Toast.LENGTH_SHORT);
-            toast.show();
-
-        }
-        //String Slecteditem= (String)adapter.getItem(position);
-        //Toast.makeText(this, Slecteditem, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu items for use in the action bar
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.menu_main, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            refreshItems();
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    void showLoadingWithMessage(String loadingText)
-    {
-        progress.setMessage(loadingText);
-        progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        progress.setIndeterminate(true);
-        progress.show();
-    }
-
-    void hideLoading()
-    {
-        if(progress != null) {
-            progress.hide();
-        }
-    }
-
-    @Override
-    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-
-        try {
-
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            intent.putExtra("android.intent.extras.CAMERA_FACING", 1);
-            startActivityForResult(intent, 1);
-
-        } catch (ActivityNotFoundException anfe) {
-
-            String errorMessage = "Whoops - your device doesn't support capturing images!";
-            Toast toast = Toast.makeText(this, errorMessage,
-                    Toast.LENGTH_SHORT);
-            toast.show();
-
-        }
-    }
-
-    private class FetchMenuItemsTask extends AsyncTask<Void, Void, Void> {
-
-        public static final int NET_CONNECT_TIMEOUT_MILLIS = 15000; // 15 seconds
-
-        public static final int NET_READ_TIMEOUT_MILLIS = 10000; //
+        public static final int NET_CONNECT_TIMEOUT_MILLIS = 15000;
+        public static final int NET_READ_TIMEOUT_MILLIS = 10000;
 
         @Override
-        protected Void doInBackground(Void... params) {
-            try {
-                String platformIDURL = "http://54.149.23.163/CoffeeApi/v1/getlist";
-
-                URL url = new URL(platformIDURL);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setReadTimeout(NET_READ_TIMEOUT_MILLIS /* milliseconds */);
-                conn.setConnectTimeout(NET_CONNECT_TIMEOUT_MILLIS /* milliseconds */);
-                conn.setRequestMethod("GET");
-                conn.setDoInput(true);
-                conn.connect();
-                InputStream inputStream = null;
-                inputStream = conn.getInputStream();
-                menuList = MenuItemModel.parseMenuItemsResponse(inputStream);
-                conn.disconnect();
-
-            } catch (Exception ex) {
-                System.out.println(ex.toString());
-            }
-            return null;
-        }
-        protected void onPostExecute(Void feed) {
-            adapter=new CustomListAdapter(context, R.layout.menu_list_item, menuList);
+        protected void onPostExecute(Void result) {
+            adapter = new CustomListAdapter(context, R.layout.menu_list_item, menuList);
             menuItemsListView.setAdapter(adapter);
-            // fire the event
             adapter.notifyDataSetChanged();
             hideLoading();
         }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            try
+            {
+                HttpURLConnection httpurlconnection = (HttpURLConnection)(new URL("http://52.10.213.83/api/v1/getlist")).openConnection();
+                httpurlconnection.setReadTimeout(10000);
+                httpurlconnection.setConnectTimeout(15000);
+                httpurlconnection.setRequestMethod("GET");
+                httpurlconnection.setDoInput(true);
+                httpurlconnection.connect();
+                java.io.InputStream inputstream = httpurlconnection.getInputStream();
+                menuList = MenuItemModel.parseMenuItemsResponse(inputstream);
+                httpurlconnection.disconnect();
+            }
+            catch (Exception exception)
+            {
+                System.out.println(exception.toString());
+            }
+            return null;
+        }
+
     }
 
     /**
-     * Check the device to make sure it has the Google Play Services APK. If
-     * it doesn't, display a dialog that allows users to download the APK from
-     * the Google Play Store or enable it in the device's system settings.
+     * String variable to manipulate shared preferences.
      */
-    private boolean checkPlayServices() {
-        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
-        if (resultCode != ConnectionResult.SUCCESS) {
-            if (GooglePlayServicesUtil.isUserRecoverableError(resultCode)) {
-                GooglePlayServicesUtil.getErrorDialog(resultCode, this,
-                        PLAY_SERVICES_RESOLUTION_REQUEST).show();
-            } else {
-                Log.i(TAG, "This device is not supported.");
+    private static final String PROPERTY_APP_VERSION = "appVersion";
+
+    /**
+     * String variable to manipulate shared preferences.
+     */
+    public static final String PROPERTY_REG_ID = "registration_id";
+
+    /**
+     * Tag variable used for logging.
+     */
+    static final String TAG = "GCM Demo";
+
+    /**
+     * The main activities context.
+     */
+    public static Context mainActivityContext;
+
+    /**
+     * The GCM sender ID obtained from Google developer console.
+     */
+    public static final String SENDER_ID = "657567415747";
+
+    /**
+     * The list adapter used for the menu list view
+     */
+    CustomListAdapter adapter;
+    Context context;
+
+    /**
+     * The GoogleCloudMessaging variable used for registering for GCM push notification to obtain the push token.
+     */
+    GoogleCloudMessaging gcm;
+
+    /**
+     * The list view for showing the menu items.
+     */
+    ListView menuItemsListView;
+
+    /**
+     * The array data source that contains MenuItem objects.
+     */
+    ArrayList menuList;
+
+    /**
+     * The loading indicator shown during menu items fetch.
+     */
+    private ProgressDialog progress;
+
+    /**
+     * The registration id obtained from GCM server.
+     */
+    String regid;
+
+    /**
+     * Method to check for internet connectivity.
+     * @return boolean value the specifies the status of the internet connection.
+     */
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+    /**
+     * Method to check whether Google Play services is installed on the phone, because push notifications work only on devices with GooglePlayServices installed in them.
+     * @return
+     */
+    private boolean checkPlayServices()
+    {
+        int i = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        if (i != 0)
+        {
+            if (GooglePlayServicesUtil.isUserRecoverableError(i))
+            {
+                GooglePlayServicesUtil.getErrorDialog(i, this, 9000).show();
+            } else
+            {
+                Log.i("GCM Demo", "This device is not supported.");
                 finish();
             }
             return false;
+        } else
+        {
+            return true;
         }
-        return true;
     }
 
     /**
-     * Stores the registration ID and the app versionCode in the application's
-     * {@code SharedPreferences}.
-     *
-     * @param context application's context.
-     * @param regId registration ID
+     * Method to get the applications ID from the system, to check for push token if already present.
+     * @param context1 the context of the app.
+     * @return integer that specifies the app version.
      */
-    private void storeRegistrationId(Context context, String regId) {
-        final SharedPreferences prefs = getGcmPreferences(context);
-        int appVersion = getAppVersion(context);
-        Log.i(TAG, "Saving regId on app version " + appVersion);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(PROPERTY_REG_ID, regId);
-        editor.putInt(PROPERTY_APP_VERSION, appVersion);
-        editor.commit();
+    private static int getAppVersion(Context context1)
+    {
+        int i;
+        try
+        {
+            i = context1.getPackageManager().getPackageInfo(context1.getPackageName(), 0).versionCode;
+        }
+        catch (PackageManager.NameNotFoundException namenotfoundexception)
+        {
+            throw new RuntimeException((new StringBuilder()).append("Could not get package name: ").append(namenotfoundexception).toString());
+        }
+        return i;
+    }
+
+    /**
+     * Method to get the shared preferences variable to access push token if present already.
+     * @param context1 the context of the app.
+     * @return the SharedPreferences obejct.
+     */
+    private SharedPreferences getGcmPreferences(Context context1)
+    {
+        return getSharedPreferences(com.example.harimani.restaurantapp.MainActivity.class.getSimpleName(), 0);
     }
 
     /**
@@ -292,6 +223,34 @@ public class MainActivity extends ActionBarActivity implements AdapterView.OnIte
             return "";
         }
         return registrationId;
+    }
+
+    /**
+     * Method to refresh the menu items in the screen.
+     */
+    private void refreshItems()
+    {
+        if(isNetworkAvailable()) {
+            showLoadingWithMessage("Fetching Menu Items");
+            (new FetchMenuItemsTask()).execute();
+        }
+        else
+        {
+            //show alert for no internet connection
+            AlertDialog.Builder builder1 = new AlertDialog.Builder(context);
+            builder1.setMessage("Refresh Menu Items Needs Internet Connection...");
+            builder1.setCancelable(true);
+            builder1.setNegativeButton("Ok",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                        }
+                    });
+
+            AlertDialog alert11 = builder1.create();
+            alert11.show();
+        }
+
     }
 
     /**
@@ -338,147 +297,121 @@ public class MainActivity extends ActionBarActivity implements AdapterView.OnIte
         }.execute(null, null, null);
     }
 
-    /**
-     * @return Application's version code from the {@code PackageManager}.
-     */
-    private static int getAppVersion(Context context) {
-        try {
-            PackageInfo packageInfo = context.getPackageManager()
-                    .getPackageInfo(context.getPackageName(), 0);
-            return packageInfo.versionCode;
-        } catch (PackageManager.NameNotFoundException e) {
-            // should never happen
-            throw new RuntimeException("Could not get package name: " + e);
-        }
+    private void sendRegistrationIdToBackend()
+    {
     }
 
     /**
-     * @return Application's {@code SharedPreferences}.
+     * Method to store the registration ID in shared preferences.
+     * @param context1 the context of the app.
+     * @param s string variable to store in the shared preferences.
      */
-    private SharedPreferences getGcmPreferences(Context context) {
-        // This sample app persists the registration ID in shared preferences, but
-        // how you store the regID in your app is up to you.
-        return getSharedPreferences(MainActivity.class.getSimpleName(),
-                Context.MODE_PRIVATE);
+    private void storeRegistrationId(Context context1, String s)
+    {
+        SharedPreferences sharedpreferences = getGcmPreferences(context1);
+        int i = getAppVersion(context1);
+        Log.i("GCM Demo", (new StringBuilder()).append("Saving regId on app version ").append(i).toString());
+        android.content.SharedPreferences.Editor editor = sharedpreferences.edit();
+        editor.putString("registration_id", s);
+        editor.putInt("appVersion", i);
+        editor.commit();
     }
+
     /**
-     * Sends the registration ID to your server over HTTP, so it can use GCM/HTTP or CCS to send
-     * messages to your app. Not needed for this demo since the device sends upstream messages
-     * to a server that echoes back the message using the 'from' address in the message.
+     * Method to hide the loading indicator.
      */
-    private void sendRegistrationIdToBackend() {
-
-        // Your implementation here.
-
-        /*new AlertDialog.Builder(this)
-                .setTitle("Alert-GCM Code")
-                .setMessage(getRegistrationId(this.getApplicationContext()))
-                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        // continue with delete
-                    }
-                })
-                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        // do nothing
-                    }
-                })
-                .setIcon(android.R.drawable.ic_dialog_alert)
-                .show();*/
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1
-                && resultCode == Activity.RESULT_OK) {
-            getLastImageId();
-
-            new PostPicture().execute();
+    void hideLoading()
+    {
+        if (progress != null)
+        {
+            progress.hide();
         }
     }
 
-    private int getLastImageId() {
-        // TODO Auto-generated method stub
-        final String[] imageColumns = { MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DATA };
-        final String imageOrderBy = MediaStore.Images.Media._ID + " DESC";
-        Cursor imageCursor = managedQuery(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageColumns,
-                null, null, imageOrderBy);
-        if (imageCursor.moveToFirst()) {
-            int id = imageCursor.getInt(imageCursor
-                    .getColumnIndexOrThrow(MediaStore.Images.Media._ID));
-            fullPath = imageCursor.getString(imageCursor
-                    .getColumnIndex(MediaStore.Images.Media.DATA));
-            Log.d("pff", "getLastImageId: :id " + id);
-            Log.d("pff", "getLastImageId: :path " + fullPath);
-            return id;
-
-        } else {
-            return 0;
-        }
-    }
-
-    class PostPicture extends AsyncTask<String, String, String> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            pDialog = new ProgressDialog(MainActivity.this);
-            pDialog.setMessage("Uploading Picture");
-            pDialog.setIndeterminate(false);
-            pDialog.setCancelable(true);
-            pDialog.show();
-
-        }
-
-        @Override
-        protected String doInBackground(String... args) {
-            // TODO Auto-generated method stub
-            // Check for success tag
-
-            HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost("http://www.your-php-page.php");
-
-            try {
-
-                /*MultipartEntity entity = new MultipartEntity(
-                        HttpMultipartMode.BROWSER_COMPATIBLE);
-                File file = new File(fullPath);
-                cbFile = new FileBody(file, "image/jpeg");
-                Log.d("sending picture", "guest name is " + guest_name);
-                Log.d("Sending picture", "guest code is " + guest_code);
-                entity.addPart("name",
-                        new StringBody(guest_name, Charset.forName("UTF-8")));
-                entity.addPart("code",
-                        new StringBody(guest_code, Charset.forName("UTF-8")));
-                entity.addPart("picture", cbFile);
-                post.setEntity(entity);
-
-                HttpResponse response1 = client.execute(post);
-                HttpEntity resEntity = response1.getEntity();
-                String Response = EntityUtils.toString(resEntity);
-                Log.d("Response", Response);*/
-
-            } catch (Exception e) {
-                Log.e("asdf", e.getMessage(), e);
-
+    /**
+     * Default method to be overriden for showing the activity screen.
+     */
+    protected void onCreate(Bundle bundle)
+    {
+        super.onCreate(bundle);
+        context = this;
+        mainActivityContext = this;
+        setContentView(R.layout.activity_main);
+        menuItemsListView = (ListView)findViewById(R.id.menuItemsListView);
+        menuItemsListView.setAdapter(adapter);
+        menuItemsListView.setOnItemClickListener(this);
+        progress = new ProgressDialog(this);
+        refreshItems();
+        //GCM push intialization..
+        if (checkPlayServices())
+        {
+            gcm = GoogleCloudMessaging.getInstance(this);
+            regid = getRegistrationId(this);
+            if (regid.isEmpty())
+            {
+                registerInBackground();
             }
-            return null;
-
+            return;
+        } else
+        {
+            Log.i("GCM Demo", "No valid Google Play Services APK found.");
+            return;
         }
+    }
 
-        protected void onPostExecute(String file_url) {
-            // dismiss the dialog once product deleted
-            pDialog.dismiss();
-            if (file_url != null) {
-                Toast.makeText(MainActivity.this, file_url, Toast.LENGTH_LONG)
-                        .show();
-            }
+    /**
+     * Default method to be overriden to shown menu items.
+     */
+    public boolean onCreateOptionsMenu(Menu menu)
+    {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
 
+    /**
+     * Method to handle the menu item list view click.
+     * @param adapterview the adapter view that contains the listview
+     * @param view the container view
+     * @param i the item index that was clicked.
+     * @param l
+     */
+    public void onItemClick(AdapterView adapterview, View view, int i, long l)
+    {
+        MenuItemModel menuitemmodel = (MenuItemModel)menuList.get(i);
+        Intent intent = new Intent(this, com.example.harimani.restaurantapp.OrderConfirmationActivity.class);
+        intent.putExtra("item_id", menuitemmodel.itemID);
+        intent.putExtra("item_name", menuitemmodel.itemName);
+        intent.putExtra("item_desc", menuitemmodel.description);
+        intent.putExtra("device_token", regid);
+        startActivity(intent);
+    }
+
+    /**
+     * Method to handle the menu item click
+     * @param menuitem The menu item that was clicked.
+     * @return the boolean variable to be returned by the overridden method.
+     */
+    public boolean onOptionsItemSelected(MenuItem menuitem)
+    {
+        if (menuitem.getItemId() == R.id.action_settings)
+        {
+            refreshItems();
+            return true;
+        } else
+        {
+            return super.onOptionsItemSelected(menuitem);
         }
+    }
 
-
+    /**
+     * Method to show loading indicator with a string label.
+     * @param s the string to be shown on the loading indicator.
+     */
+    void showLoadingWithMessage(String s)
+    {
+        progress.setMessage(s);
+        progress.setProgressStyle(0);
+        progress.setIndeterminate(true);
+        progress.show();
     }
 }
