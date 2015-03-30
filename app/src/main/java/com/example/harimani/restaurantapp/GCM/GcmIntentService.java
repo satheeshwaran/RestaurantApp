@@ -6,26 +6,38 @@ import com.example.harimani.restaurantapp.R;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 
 import android.app.IntentService;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-
 /**
- * Created by 309222 on 29-Oct-14.
+ * GcmIntentService is an intent service class used for handling GCM push notifications that are received.
  */
 public class GcmIntentService extends IntentService {
+
+    /**
+     * The int variable to be used for scheduling notifications.
+     */
     public static final int NOTIFICATION_ID = 1;
+
+    /**
+     * The NotificationManager object used by the app to schedule notifications that are received from GCM server.
+     */
     private NotificationManager mNotificationManager;
-    NotificationCompat.Builder builder;
 
     public GcmIntentService() {
         super("GcmIntentService");
     }
+
+    /**
+     * The tag variable used for logging and for notifications display name.
+     */
     public static final String TAG = "Restaurant App";
 
     @Override
@@ -59,6 +71,7 @@ public class GcmIntentService extends IntentService {
     // This is just one simple example of what you might choose to do with
     // a GCM message.
     private void sendNotification(String msg) {
+
         mNotificationManager = (NotificationManager)
                 this.getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -73,8 +86,18 @@ public class GcmIntentService extends IntentService {
                         .setSmallIcon(R.drawable.ic_launcher)
                         .setContentText(msg);
 
-
+        mBuilder.setDefaults(Notification.DEFAULT_SOUND);
         mBuilder.setContentIntent(contentIntent);
+
+        //Vibration
+        //mBuilder.setVibrate(new long[] { 1000, 1000, 1000, 1000, 1000 });
+
+        //LED
+        //mBuilder.setLights(Color.RED, 3000, 3000);
+
+        //for custom sound.
+        //mBuilder.setSound(Uri.parse("uri://sadfasdfasdf.mp3"));
+
         mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
     }
 
